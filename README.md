@@ -16,12 +16,13 @@ Simple postage purchasing app for letters and flats utilizing the EasyPost API -
 
 ## Demo
 
-![Animation](https://github.com/user-attachments/assets/59d99a53-8e64-4153-bf98-f06a469388ae)
+<img width="1978" height="1089" alt="image" src="https://github.com/user-attachments/assets/d5847715-45b1-45d6-b8fe-eb0006601140" />
+
 
 
 ## Installation
 
-Make sure you have .NET Framework 9 installed.  [Download here if needed.](https://dotnet.microsoft.com/en-us/download/dotnet/thank-you/runtime-desktop-9.0.9-windows-x64-installer)  You can also download the "Self Contained" version from the releases - it's a bigger download (~100MB vs ~1MB)
+Make sure you have .NET Framework 9 installed.  [Download here if needed.](https://dotnet.microsoft.com/en-us/download/dotnet/thank-you/runtime-desktop-9.0.9-windows-x64-installer)  Windows should also prompt you to download it, I think.
 
 Just unzip it and run `Manapost.exe`.  Settings are saved in `config.txt` and created labels are saved as PDFs in the `Labels` folder.  Wherever you run it from is where your config and labels will be stored.
 
