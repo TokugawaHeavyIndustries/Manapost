@@ -6,6 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
 	<ApplicationIcon>Assets\s.ico</ApplicationIcon>
+	<Platforms>AnyCPU;x86;x64;ARM64</Platforms>
   </PropertyGroup>
 
 
@@ -16,6 +17,9 @@
   <ItemGroup>
     <Resource Include="App.xaml" />
     <Resource Include="Assets\snowimage.png" />
+	<Resource Include="Assets\MPlantin.ttf">
+	  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+	</Resource>
   </ItemGroup>
 
   <ItemGroup>

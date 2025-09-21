@@ -1,18 +1,12 @@
 ﻿using EasyPost;
 using EasyPost.Models.API;
 using PdfiumViewer;
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing.Printing;
 using System.IO;
-using System.Linq;
 using System.Net.Http;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Controls.Primitives;
 
 namespace Manapost
 {
@@ -29,6 +23,11 @@ namespace Manapost
         private string fromZip = "";
 
         bool addressEditor = false;
+        bool labelLimitCalculated = false;
+        int apiKeyValid = -1;
+
+        int labelCount = 0;
+
 
         public MainWindow()
         {
@@ -83,7 +82,9 @@ namespace Manapost
             var exeDirectory = AppDomain.CurrentDomain.BaseDirectory;
             string configPath = Path.Combine(exeDirectory, ConfigFileName);
             if (!File.Exists(configPath))
-                return;
+            {
+                using (File.Create(configPath)) { }
+            }
 
             var lines = File.ReadAllLines(configPath);
             var config = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -99,7 +100,6 @@ namespace Manapost
 
             config.TryGetValue("PrintDirectly", out var printDirectly);
             config.TryGetValue("Printer", out var printer);
-            config.TryGetValue("AddressType", out var addressType);
             config.TryGetValue("ApiKey", out apiKey);
             config.TryGetValue("LabelSize", out labelSize);
             config.TryGetValue("FromName", out fromName);
@@ -109,16 +109,29 @@ namespace Manapost
             config.TryGetValue("FromState", out fromState);
             config.TryGetValue("FromZip", out fromZip);
 
+            if (config.TryGetValue("AddressType", out var addressType))
+            { 
+
             if (bool.TryParse(addressType, out bool showAddressState))
             {
-                AddressToggle.IsChecked = showAddressState;
+                    System.Diagnostics.Debug.WriteLine($"AddressType from config: {showAddressState}");
+                    AddressToggle.IsChecked = showAddressState;
+                AddressToggled(AddressToggle, new RoutedEventArgs());
+            }
+            }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine($"AddressType from config: Not Found");
+                AddressToggle.IsChecked = true;
                 AddressToggled(AddressToggle, new RoutedEventArgs());
             }
 
-            PrinterSelection();
+                PrinterSelection();
             PrinterPicker.SelectedItem = printer;
             if (string.IsNullOrEmpty(printDirectly))
+            {
                 printDirectly = "false";
+            }
             bool printDirectlyBool = bool.Parse(printDirectly);
             PrintDirectlyCheckBox.IsChecked = printDirectlyBool;
             ApiKeyEntry.Text = apiKey;
@@ -140,6 +153,10 @@ namespace Manapost
                     }
                 }
             }
+
+            GetCurrentBalance();
+            LabelsThisMonth();
+
         }
 
         private void SavePrinterSettings(object sender, RoutedEventArgs e)
@@ -161,6 +178,8 @@ namespace Manapost
         {
             apiKey = ApiKeyEntry.Text?.Trim() ?? "";
             UpdateConfigValue("APIKey", ApiKeyEntry.Text ?? "");
+            GetCurrentBalance();
+            LabelsThisMonth();
         }
 
         private void SaveFromAddress(object sender, RoutedEventArgs e)
@@ -380,6 +399,8 @@ namespace Manapost
                     UseShellExecute = true
                 });
             }
+            GetCurrentBalance();
+            LabelsThisMonth(true);
         }
 
         private CancellationTokenSource _debounceCts;
@@ -528,6 +549,9 @@ namespace Manapost
                 if (user != null && !string.IsNullOrEmpty(user.Id))
                 {
                     DynamicLabel.Text = $"Connected to EasyPost as {user.Name}";
+                    apiKeyValid = 1;
+                    GetCurrentBalance();
+                    LabelsThisMonth();
                 }
                 else
                 {
@@ -536,7 +560,17 @@ namespace Manapost
             }
             catch (Exception ex)
             {
-                DynamicLabel.Text = $"Failed to connect: {ex.Message}";
+                if (ex.Message.Contains("production API Key"))
+                {
+                    DynamicLabel.Text = "Test environment API key entered.";
+                    apiKeyValid = 0;
+                    LabelsThisMonth();
+                    return;
+                }
+                else
+                { 
+                    DynamicLabel.Text = $"Failed to connect: {ex.Message}";
+                }
             }
         }
 
@@ -550,6 +584,8 @@ namespace Manapost
                 if (user != null && !string.IsNullOrEmpty(user.Id))
                 {
                     DynamicLabel.Text = $"Connected to EasyPost as {user.Name}";
+                    apiKeyValid = 1;
+                    GetCurrentBalance();
                 }
                 else
                 {
@@ -558,7 +594,29 @@ namespace Manapost
             }
             catch (Exception ex)
             {
-                DynamicLabel.Text = $"Failed to connect: {ex.Message}";
+                if (ex.Message.Contains("production API Key"))
+                {
+                    DynamicLabel.Text = "Test environment API key entered.";
+                    apiKeyValid = 0;
+                    LabelsThisMonth();
+                    return;
+                }
+                else
+                {
+                    DynamicLabel.Text = $"Failed to connect: {ex.Message}";
+                }
+            }
+        }
+
+        private async void GetCurrentBalance()
+        {
+            if (apiKeyValid > 0)
+            {
+                var client = new Client(new ClientConfiguration(apiKey));
+                User user = await client.User.Retrieve();
+                string balance = user.Balance;
+                balance = balance[..Math.Min(balance.Length, 5)];
+                AccountBalance.Text = $"${balance}";
             }
         }
 
@@ -566,5 +624,78 @@ namespace Manapost
         {
 
         }
+
+        private async void LabelsThisMonth(bool labelPrinted = false)
+        {
+
+            string beforeId = null;
+            double labelsRemaining;
+
+            if (labelPrinted && labelLimitCalculated)
+            {
+                labelCount++;
+                labelsRemaining = 3000 - labelCount;
+                LabelsRemaining.Text = labelsRemaining.ToString();
+
+                Debug.WriteLine($"Total labels this month: {labelCount}");
+                Debug.WriteLine($"Labels remaining: {labelsRemaining}");
+            }
+            if (labelPrinted && !labelLimitCalculated)
+            {
+               labelCount++;
+            }
+
+
+            if (apiKeyValid >= 0 && labelPrinted == false)
+            {
+                LabelsRemaining.Text = "Calculating...";
+                labelCount = 0;
+                labelsRemaining = 0;
+                var startOfMonth = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
+                var endDate = DateTime.UtcNow;
+
+                var client = new Client(new ClientConfiguration(apiKey));
+
+                while (true)
+                {
+                    var parameters = new Dictionary<string, object>
+                        {
+                        { "page_size", 100 },
+                        { "start_datetime", startOfMonth.ToString("yyyy-MM-dd'T'00:00:00'Z'") },
+                        { "end_datetime", endDate.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'") }
+                        };
+
+                    if (!string.IsNullOrEmpty(beforeId))
+                        parameters.Add("before_id", beforeId);
+
+                    var shipmentCollection = await client.Shipment.All(parameters);
+                    List<Shipment> shipments = shipmentCollection.Shipments;
+
+                    Console.WriteLine($"Fetched {shipments.Count} shipments");
+
+                    if (shipments == null || shipments.Count == 0)
+                        break;
+
+                    foreach (var shipment in shipments)
+                    {
+                        Console.WriteLine($"Shipment ID: {shipment.Id}, CreatedAt: {shipment.CreatedAt}, LabelUrl: {shipment.PostageLabel?.LabelUrl}");
+
+                        if (shipment.PostageLabel != null && !string.IsNullOrWhiteSpace(shipment.PostageLabel.LabelUrl))
+                            labelCount++;
+                    }
+
+                    beforeId = shipments[^1].Id;
+                }
+
+                labelsRemaining = 3000 - labelCount;
+                LabelsRemaining.Text = labelsRemaining.ToString();
+
+                Debug.WriteLine($"Total labels this month: {labelCount}");
+                Debug.WriteLine($"Labels remaining: {labelsRemaining}");
+
+                labelLimitCalculated = true;
+            }
+        }
+
     }
 }
