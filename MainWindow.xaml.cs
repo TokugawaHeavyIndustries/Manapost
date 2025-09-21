@@ -7,6 +7,8 @@ using System.IO;
 using System.Net.Http;
 using System.Windows;
 using System.Windows.Controls;
+using Microsoft.Win32;
+
 
 namespace Manapost
 {
@@ -27,11 +29,12 @@ namespace Manapost
         int apiKeyValid = -1;
 
         int labelCount = 0;
-
+        bool isDarkMode;
 
         public MainWindow()
         {
             InitializeComponent();
+            CheckDarkMode();
             LoadConfig();
 
             WeightLbsEntry.TextChanged += PkgSizeChanged;
@@ -623,6 +626,55 @@ namespace Manapost
         private void PrinterPicker_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
 
+        }
+
+        private void CheckDarkMode()
+        {
+            int darkModeKey = (int)Registry.GetValue("HKEY_CURRENT_USER\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize", "SystemUsesLightTheme", -1);
+           //int darkModeAppKey = (int)Registry.GetValue("HKEY_CURRENT_USER\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize", "AppsUseLightTheme", -1);
+            
+            if(darkModeKey == 0)
+            {
+                isDarkMode = true;
+            }
+            else
+            {
+                isDarkMode = false;
+            }
+
+            if (isDarkMode)
+            {
+                var darkBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(45, 45, 45));
+                var lightBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(241, 241, 241));
+                var darkBrushTo = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(25, 25, 25));
+                var darkBrushFrom = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(35, 35, 35));
+                this.Background = darkBrush;
+
+                foreach (var child in MainGrid.Children)
+                {
+                    if (child is TextBox textBox)
+                    {
+                        textBox.Background = darkBrush;
+                        textBox.Foreground = lightBrush;
+                    }
+                    else if (child is ComboBox comboBox)
+                    {
+                        comboBox.Background = darkBrush;
+                        comboBox.Foreground = lightBrush;
+                    }
+                    else if (child is CheckBox checkBox)
+                    {
+                        checkBox.Foreground = lightBrush;
+                    }
+                    else if (child is Label label)
+                    {
+                        label.Foreground = lightBrush;
+                    }
+
+                    FromBorder.Background = darkBrushFrom;
+                    ToBorder.Background = darkBrushTo;
+                }
+            }
         }
 
         private async void LabelsThisMonth(bool labelPrinted = false)
