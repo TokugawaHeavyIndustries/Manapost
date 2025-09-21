@@ -16,7 +16,8 @@ Simple postage purchasing app for letters and flats utilizing the EasyPost API -
 
 ## Demo
 
-![Animation](https://github.com/user-attachments/assets/59d99a53-8e64-4153-bf98-f06a469388ae)
+<img width="1978" height="1089" alt="image" src="https://github.com/user-attachments/assets/d5847715-45b1-45d6-b8fe-eb0006601140" />
+
 
 
 ## Installation
